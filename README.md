@@ -11,39 +11,39 @@ Further to documentation might follow.
 
 Note the following .env should be created by the end user:
 
-AUTH0_CLIENT_ID=<Your Auth0 Client ID>
+AUTH0_CLIENT_ID=Your Auth0 Client ID
 
-AUTH0_DOMAIN=<Your Auth0 Domain>
+AUTH0_DOMAIN=Your Auth0 Domain
 
-AUTH0_CLIENT_SECRET=<Your Auth0 Client Secret>
+AUTH0_CLIENT_SECRET=Your Auth0 Client Secret
 
-AUTH0_CALLBACK_URL=https:<Your website>/callback
+AUTH0_CALLBACK_URL=https:Your website/callback
 
-AUTH0_AUDIENCE=https://<Your Auth0 Domain>/userinfo
+AUTH0_AUDIENCE=https://Your Auth0 Domain/userinfo
 
-BACKEND_DBPWD=<MongoOB password>
+BACKEND_DBPWD=MongoOB password
 
-BACKEND_DBUSR=<MonghoDB username>
+BACKEND_DBUSR=MonghoDB username
 
-BACKEND_DBHOST=<MongoDB Hostname/s>
+BACKEND_DBHOST=MongoDB Hostname_s
 
-BACKEND_DBPORT=<MongoDB Port>
+BACKEND_DBPORT=MongoDB Port
 
-BACKEND_DBNAME=<MongoDB Database Name, eg footballDB>
+BACKEND_DBNAME=<MongoDB Database Name, eg footballDB
 
 SECRET_KEY=notForProduction
 
-PYTHONPATH=<Path to cffa:and cffadb>
+PYTHONPATH=Path to cffa:and cffadb
 
-EXPORTDIRECTORY=<Local dir to export db archives>
+EXPORTDIRECTORY=Local dir to export db archives
 
-CFFA_USERID=Auth0 Username including auht0| prefix>
+CFFA_USERID=Auth0 Username including auht0| prefix
 
 To import data from a google sheet the following needs to be set. NB: documentation on googlesheet template to follow
 
-GOOGLEKEYFILE=<json file to access the google sheet>
+GOOGLEKEYFILE=json file to access the google sheet
 
-GOOGLE_SHEET="<sheet name>
+GOOGLE_SHEET=sheet name
 
 TRANSACTION_SRC_WKSHEET=Sheet name in google sheet with money transfer data
 
