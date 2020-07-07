@@ -97,3 +97,49 @@ class CFFASettings:
     def __repr__(self):
         return ('CFFASetting(' + self.teamName + ')')
 
+
+class CFFAUser:
+    name = None
+    authID = None
+    type = None
+    revoked = None
+
+    def __init__(self, name, authID, type, revoked):
+        self.name = name
+        self.authID = authID
+        self.type = type
+        self.revoked = revoked
+
+    def __repr__(self):
+        return ('CFFAUser(' + self.name + ", " + self.authID + ", " + self.type + ", " + str(self.revoked) + ')')
+
+class PlayerSummary:
+    amount = 0
+    gamesCost = 0
+    moniesPaid = 0
+    gameAttended = 0
+    lastPlayed = None
+    description = ""
+
+    def __init__(self, amount, gamesCost, moniesPaid, gameAttended, lastPlayed):
+        self.amount = amount
+        self.gamesCost = gamesCost
+        self.moniesPaid = moniesPaid
+        self.gameAttended = gameAttended
+        self.lastPlayed = lastPlayed
+
+class LedgerEntry:
+    date = None # use Date type
+    credit = "" # use String so blanks are possible
+    debit = "" # use String so blanks are possible
+    balance = "" # also use String
+    description = ""
+
+    def __init__(self, date, credit, debit, balance, description):
+        self.date = date
+        self.credit = credit
+        self.debit = debit
+        self.balance = balance
+        self.description = description
+
+

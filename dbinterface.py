@@ -94,7 +94,7 @@ class FootballDB:
 
         return(True)
 
-    def addTeam(self, teamName, userID):
+    def addTeam(self, teamName, userID, userName):
         # first check if team exists, it should not as form should have rejected it. Add default key as well as team
         # name to the collection
         if userID != None:
@@ -103,9 +103,12 @@ class FootballDB:
                 logger.warning(message)
             else:
                 self.tenancy.insert(dict(
+                    userName=userName,
                     userID=userID,
-                    tenancyID=hex(int(datetime.datetime.now().timestamp() * 1000)),
+                    tenancyID=hex(int(datetime.datetime.now().timestamp() * 1000))[2:],
                     teamName=teamName,
+                    userType="Manager",
+                    revoked=False,
                     default=True))
 
                 # load user collections so we can append teamSettings
@@ -737,6 +740,17 @@ class FootballDB:
 
         return (gamesInDB)
 
+    def getGamesForPlayer(self, playerName):
+
+        gamesInDB = []
+        try:
+            gamesInDB = list(self.games.find({playerName: {"$in": ["Win", "Lose", "Draw", "No Show"]}}, collation=aggCollation))
+        except Exception as e:
+            logger.critical("Could not get list of games in getGamesForPlayer() with name " + playerName)
+            logger.critical(e.code + e.details)
+
+        return (gamesInDB)
+
     def getAllGames(self):
         # sort on date, latest first
         gamesInDB = []
@@ -1152,6 +1166,7 @@ class FootballDB:
 
             try:
                 self.tenancy.update({"userID" : userID, "teamName" : currentTeam}, {"$set":{ "teamName" : newName}} )
+                # TO DO:  find all records on tenancyID and update team name
             except Exception as e:
                 logger.critical("Could not update tenancy for teamName " + currentTeam + " to team " + newName)
                 message = "Internal error when updating database"
@@ -1188,3 +1203,225 @@ class FootballDB:
             logger.critical(e.code + e.details)
 
         return(teamPlayers)
+
+
+    def getUserAccessData(self, userID):
+        # get tenancy ID from userID, then return all users in tenancy with that tenancyID
+        users = []
+        try:
+            tenancyID = self.getTenancyID(userID)
+            dbUsers = list(self.tenancy.find({ "tenancyID" : tenancyID}))
+
+            for user in dbUsers:
+                aUser = footballClasses.CFFAUser(user.get("userName", None),
+                                                 user.get('userID', None),
+                                                 user.get('userType', None),
+                                                 user.get('revoked', None))
+                users.append(aUser)
+
+        except Exception as e:
+            logger.critical("Unable to find tenancyID or users in getUserAccessData()")
+            logger.critical(e.code + e.details)
+
+        return(users)
+
+
+    def getTenancyID(self, userID):
+        try:
+            tenancyDocument = self.tenancy.find_one({"$and": [{"userID": userID, "default": True}]},
+                                              {"tenancyID": 1})
+        except Exception as e:
+            logger.critical("Unable to find tenancyID when getTenancyID()")
+            logger.critical(e.code + e.details)
+            return(None)
+
+        return (tenancyDocument.get("tenancyID", None))
+
+    def getTeamName(self, tenancyID):
+        teamName = None
+        try:
+            cffaSettings = list(self.teamSettings.find())
+            for setting in cffaSettings:
+                if setting.get("teamName", None) != None:
+                    teamName = setting.get("teamName", None)
+
+        except Exception as e:
+            logger.critical("Unable to find teamName in settings in getTeamName()")
+            logger.critical(e.code + e.details)
+            return (None)
+
+        return(teamName)
+
+    def addUserAccess(self, name, authID, type, thisUserID):
+        tenancyID = self.getTenancyID(thisUserID)
+        teamName = self.getTeamName(tenancyID)
+
+        if tenancyID != None and teamName != None:
+            try:
+                self.tenancy.insert(dict(
+                    userName=name,
+                    userID=authID,
+                    tenancyID=tenancyID,
+                    teamName=teamName,
+                    userType=type,
+                    revoked=False,
+                    default=True))
+                message = "Added user to CFFA"
+            except Exception as e:
+                logger.critical("Unable to insert user into tenancy collection in addUserAccess()")
+                logger.critical(e.code + e.details)
+                message = "Internal Error. Unable to add user"
+        else:
+            message = "Internal Error, unable to add user due to tenancy or team name setting"
+
+        return(message)
+
+    def editUserAccess(self, oldUserName, cffaUser):
+        # replace document
+        titledUserName = cffaUser.name.title()
+        if oldUserName != titledUserName:
+            # remove old document, the insert new. Hmm or does the below work?
+            self.tenancy.update_one({"userName": oldUserName}, {"$set":
+                                                                       {"userName": titledUserName,
+                                                                        "userID": cffaUser.authID,
+                                                                        "userType": cffaUser.type,
+                                                                        "revoked": cffaUser.revoked
+                                                                        }})
+            message = "Updated user " + oldUserName + " to " + titledUserName + " and their access details"
+
+        else:
+            self.tenancy.update_one({"userName": titledUserName}, {"$set":
+                                                                            {"userID": cffaUser.authID,
+                                                                             "userType": cffaUser.type,
+                                                                             "revoked": cffaUser.revoked
+                                                                             }})
+            message = "Updated user " + titledUserName + " access details"
+
+        logger.info(message)
+        return (message)
+
+
+    def validateUserAsPlayerRole(self, userID):
+        if userID == None:
+            logger.major("Unable to validate player user ID as it not set in validatePlayerRole()")
+            return(False)   # AUth0 has no user ID, deny any manager admin access to system
+            # TO DO: should handle this somewhere else but might not be a use valid case as Auth0 would not permit access without a userID.
+
+        try:
+            user = self.tenancy.find_one( { "$and" : [ {"userID" : userID , "default" : True} ]},
+                                   { "tenancyID" : 1, "userType" : 1, "name" : 1})
+            if (user == None):
+                logger.warning("User ID " + str(userID) + "has no tenancies set. Will be new manager")
+                # TO DO: Needs to be redesigned to tighten up access.
+                return(False)
+
+            if user.get('userType', None) == "Player":
+                logger.debug("User " + userID + " validated as a player")
+                return(True)
+            else:
+                return(False)
+
+        except Exception as e:
+            logger.critical("Unable to validate Player Role in validatePlayerRole()")
+            return(False)
+
+    def getSummaryForPlayer(self, playerName):
+        try:
+            playerSummary = self.teamSummary.find_one({"playerName" : playerName }, {"_id": 0})
+        except Exception as e:
+            logger.critical("Could not return summary in getSummaryForPlayer() for player " + playerName)
+            logger.critical(e.code, e.details)
+
+        if playerSummary == None:
+            thisPlayer = footballClasses.PlayerSummary(Decimal128("0.00"),
+                                                       Decimal128("0.00"),
+                                                       Decimal128("0.00"),
+                                                       0,
+                                                       datetime.datetime(1970, 1, 1, 0, 0))
+        else:
+            thisPlayer = footballClasses.PlayerSummary(playerSummary.get("balance", Decimal128("0.00")),
+                                                   playerSummary.get("gamesCost", Decimal128("0.00")),
+                                                   playerSummary.get("moniespaid", Decimal128("0.00")),
+                                                   playerSummary.get("gamesAttended", 0),
+                                                   playerSummary.get("lastPlayed", datetime.datetime(1970, 1, 1, 0, 0))
+                                                   )
+
+        return(thisPlayer)
+
+
+    def calcLedgerForPlayer(self, playerName):
+        # create a list from games that the player played, and append a list of their transactions, then sort on date, latest first.
+        ledger=[]
+        try:
+            # first append the adjustment, if any
+            adjustment = self.adjustments.find_one( {"name" : playerName})
+            if adjustment != None:
+                if adjustment.get("adjust").to_decimal() > 0:
+                    ledgerRecord = footballClasses.LedgerEntry(datetime.datetime(2010, 1, 1, 0, 0),
+                                                               adjustment.get("adjust"),
+                                                               "",
+                                                               "",
+                                                               "Initial balance adjustment")
+                else:
+                    ledgerRecord = footballClasses.LedgerEntry(datetime.datetime(2010, 1, 1, 0, 0),
+                                                               "",
+                                                               Decimal128(str(abs(adjustment.get("adjust").to_decimal()))),
+                                                               "",
+                                                               "Initial balance adjustment")
+                ledger.append(ledgerRecord)
+            for x in self.games.find({playerName: {"$in": ["Win", "Lose", "Draw", "No Show"]}}, collation=aggCollation):
+                actualCostEach = Decimal128(str(x.get("Cost of Game").to_decimal() / x.get('Players')))
+                ledgerRecord = footballClasses.LedgerEntry(x.get("Date of Game dd-MON-YYYY"),
+                                                           "",
+                                                           actualCostEach,
+                                                           "",
+                                                           "Game")
+                ledger.append(ledgerRecord)
+
+            for x in self.payments.find( {"Player" : playerName} ):
+                if x.get("Amount").to_decimal() >= 0:
+                    credit = x.get("Amount")
+                    debit = ""
+                else:
+                    debit = Decimal128(str(abs(x.get('Amount').to_decimal())))
+                    credit = ""
+
+                ledgerRecord = footballClasses.LedgerEntry(x.get("Date"),
+                                                           credit,
+                                                           debit,
+                                                           "",
+                                                           x.get("Type"))
+                ledger.append(ledgerRecord)
+
+            # now sort on date then calc balance on each row assuming initial balance is 0
+            sortedLedger = sorted(ledger, key = lambda k : k.date)
+
+            rollingBalance = 0
+            for record in sortedLedger:
+                if (record.credit == ""):
+                    credit = float() # 0.0
+                else:
+                    credit = float(record.credit.to_decimal())
+                    record.credit = Decimal128(str(round(credit, 2))) # rounded for presentation
+
+                if (record.debit == ""):
+                    debit = float()
+                else:
+                    debit = float(record.debit.to_decimal())
+                    record.debit = Decimal128(str(round(debit, 2))) # rounded for presentation
+
+                rollingBalance = rollingBalance + credit - debit
+                record.balance = Decimal128(str(round(rollingBalance, 2)))
+
+            if len(sortedLedger) == 0:
+                # if there are is no activity, at least show something when rendering table
+                sortedLedger.append(footballClasses.LedgerEntry(datetime.datetime(1970, 1, 1, 0, 0), "", "", Decimal128("0.00"), "Initial Balance"))
+
+            # reverse list so latest dates are first
+            sortedLedger = sorted(sortedLedger, key=lambda k: k.date, reverse=True)
+
+        except Exception as e:
+            logger.error("Internal Error: Unable to process ledger logic for player " + playerName)
+            logger.error(e.code + e.details)
+
+        return(sortedLedger)
