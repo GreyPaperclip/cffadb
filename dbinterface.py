@@ -1425,3 +1425,22 @@ class FootballDB:
             logger.error(e.code + e.details)
 
         return(sortedLedger)
+
+    def dropAllCollections(self, userID):
+        # method will drop all collections for this user and the tenancy collection
+        # TO DO: remove other tenancy collections!
+        try:
+            self.payments.drop()
+            self.games.drop()
+            self.teamPlayers.drop()
+            self.adjustments.drop()
+            self.teamSettings.drop()
+            self.teamSummary.drop()
+            self.tenancy.drop()
+            message="Dropped all data for user ID: " + userID
+        except Excepton as e:
+            logger.error("Internal Error: Unable to process drop database for player " + userID)
+            logger.error(e.code + e.details)
+            message="Internal Error: Unable to process drop database for player " + userID
+
+        return(message)
