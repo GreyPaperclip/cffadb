@@ -59,16 +59,16 @@ class FootballDB:
     payments : collection
         Payments collection handle for this tenancy.
 
-     games : collection
+    games : collection
         Games collection handle for this tenancy.
 
     adjustments : collection
         Adjustments collection handle for this tenancy.
 
-    teamSummary : collection
+    team_summary : collection
         TeamSummary collection handle for this tenancy.
 
-    teamPlayers : collection
+    team_players : collection
         TeamPlayers collection handle for this tenancy.
 
     """
@@ -146,9 +146,9 @@ class FootballDB:
             self.games = self.theDB[team.get("tenancyID") + "_games"]
             self.adjustments = self.theDB[
                 team.get("tenancyID") + "_adjustments"]  # unused for non-google imported accounts if ever supported
-            self.teamSummary = self.theDB[team.get("tenancyID") + "_teamSummary"]
-            self.teamPlayers = self.theDB[team.get("tenancyID") + "_teamPlayers"]
-            self.teamSettings = self.theDB[team.get("tenancyID") + "_teamSettings"]
+            self.team_summary = self.theDB[team.get("tenancyID") + "_teamSummary"]
+            self.team_players = self.theDB[team.get("tenancyID") + "_teamPlayers"]
+            self.team_settings = self.theDB[team.get("tenancyID") + "_teamSettings"]
         except pymongo.errors.PyMongoError as e:
             logger.critical("Unable to load and initialise tenancy data")
             return False
@@ -193,7 +193,7 @@ class FootballDB:
                     revoked=False,
                     default=True))
 
-                # load user collections so we can append teamSettings
+                # load user collections so we can append team_settings
                 self.load_team_tables_for_user_id(user_id)
                 first_setting = dict(teamName=team_name)
                 settings = []
@@ -319,8 +319,8 @@ class FootballDB:
 
         """
 
-        self.teamSummary.drop()
-        logger.info("Dropped teamSummary collection in calc_populate_team_summary()")
+        self.team_summary.drop()
+        logger.info("Dropped team_summary collection in calc_populate_team_summary()")
         team = []
         aggregated_payments = self.get_aggregated_payments()
 
@@ -390,9 +390,9 @@ class FootballDB:
                 logger.error("Problem with a player when adding their summary:")
                 logger.error(e.code + e.details)
         try:
-            self.teamSummary.insert_many(team)
+            self.team_summary.insert_many(team)
         except pymongo.errors.OperationFailure as e:
-            logger.error("Problem with inserting teamSummary in DB")
+            logger.error("Problem with inserting team_summary in DB")
             logger.error(e.code + e.details)
 
     def populate_team_players(self, players):
@@ -406,11 +406,11 @@ class FootballDB:
 
         """
         # playerName, comment
-        self.teamPlayers.drop()
+        self.team_players.drop()
         try:
-            self.teamPlayers.insert_many(players)
+            self.team_players.insert_many(players)
         except pymongo.errors.OperationFailure as e:
-            logger.critical("Unable to insert players into teamPlayers collection")
+            logger.critical("Unable to insert players into team_players collection")
             logger.critical(e.code + e.details)
 
     def populate_team_settings(self, settings):
@@ -424,15 +424,15 @@ class FootballDB:
 
         """
         # TeamName
-        self.teamSettings.drop()
+        self.team_settings.drop()
         try:
-            self.teamSettings.insert_many(settings)
+            self.team_settings.insert_many(settings)
         except pymongo.errors.OperationFailure as e:
-            logger.critical("Unable to insert settings into teamSettings collection")
+            logger.critical("Unable to insert settings into team_settings collection")
             logger.critical(e.code + e.details)
 
     def player_exists(self, player_name):
-        """ Logic to check if player exists in teamSummary.
+        """ Logic to check if player exists in team_summary.
 
           Parameters
           ----------
@@ -448,7 +448,7 @@ class FootballDB:
 
           """
         # check if player name exists, return true/false
-        player = self.teamSummary.find_one({"playerName": player_name})
+        player = self.team_summary.find_one({"playerName": player_name})
         if player is not None:
             if player.get("playerName", None) == player_name:
                 return True
@@ -477,12 +477,12 @@ class FootballDB:
             message = "Player " + str(player.playername) + " already exists!"
             return message
 
-        self.teamPlayers.insert(dict(
+        self.team_players.insert(dict(
             playerName=player.playername,
             comment=player.comment,
             retiree=player.retiree))
 
-        self.teamSummary.insert(dict(
+        self.team_summary.insert(dict(
             playerName=player.playername,
             gamesAttended=0,
             lastPlayed=datetime.datetime(1970, 1, 1, 0, 0),
@@ -560,13 +560,13 @@ class FootballDB:
                                           {"$set": {"PlayerList": ','.join(player_name_list)}})
                     logger.info("PlayerList modded for old_player_name" + old_player_name + str(game.get("_id")))
 
-            # now teamSummary
-            team = self.teamSummary.find({})
+            # now team_summary
+            team = self.team_summary.find({})
             for our_player in team:
                 if old_player_name == our_player.get("playerName", "None"):
-                    self.teamSummary.update_one({"_id": our_player.get("_id")},
+                    self.team_summary.update_one({"_id": our_player.get("_id")},
                                                 {"$set": {"playerName": player.playername}})
-                    logger.debug("Updated teamSummary" + str(our_player.get(
+                    logger.debug("Updated team_summary" + str(our_player.get(
                         "_id")) + "for player " + old_player_name + " and changed name to " + player.playername)
 
             # now transactions
@@ -577,11 +577,11 @@ class FootballDB:
                     logger.debug("Updated transaction " + str(transaction.get(
                         "_id")) + " for player " + old_player_name + " and changed name to " + player.playername)
 
-            # now teamPlayers
-            team = self.teamPlayers.find({})
+            # now team_players
+            team = self.team_players.find({})
             for our_player in team:
                 if old_player_name == our_player.get("playerName", "None"):
-                    self.teamPlayers.update_one({"_id": our_player.get("_id")},
+                    self.team_players.update_one({"_id": our_player.get("_id")},
                                                 {"$set": {"playerName": player.playername}})
                     logger.debug("Updated teamPlayer " + str(our_player.get(
                         "_id")) + " for player " + old_player_name + " and changed name to " + player.playername)
@@ -592,7 +592,7 @@ class FootballDB:
 
         # in all cases we update retiree and comment with whatever is passed - doesn't matter to check if they have
         # actually changed.
-        self.teamPlayers.update_one({"playerName": player.playername}, {"$set":
+        self.team_players.update_one({"playerName": player.playername}, {"$set":
                                                                             {"retiree": player.retiree,
                                                                              "comment": player.comment
                                                                              }})
@@ -616,9 +616,9 @@ class FootballDB:
             Message to show if action succeeded or not.
           """
         try:
-            self.teamPlayers.update_one({"playerName": player_name}, {"$set": {"retiree": True}})
+            self.team_players.update_one({"playerName": player_name}, {"$set": {"retiree": True}})
         except pymongo.errors.OperationFailure as e:
-            logger.critical("Unable to reactivate player in teamPlayers " + player_name)
+            logger.critical("Unable to reactivate player in team_players " + player_name)
             logger.critical(e.code + e.details)
             message = "Could not retire player " + player_name
             logger.info(message)
@@ -644,9 +644,9 @@ class FootballDB:
             Message to show if action succeeded or not.
           """
         try:
-            self.teamPlayers.update_one({"playerName": player_name}, {"$set": {"retiree": False}})
+            self.team_players.update_one({"playerName": player_name}, {"$set": {"retiree": False}})
         except pymongo.errors.OperationFailure as e:
-            logger.critical("Unable to reactivate player in teamPlayers " + player_name)
+            logger.critical("Unable to reactivate player in team_players " + player_name)
             logger.critical(e.code + e.details)
             message = "Could not reactivate player " + player_name
             logger.info(message)
@@ -716,14 +716,14 @@ class FootballDB:
         # then handle booker and cost of game
 
         for player in new_game.playerlist:
-            player_document = self.teamSummary.find_one({"playerName": player.playername}, collation=aggCollation)
+            player_document = self.team_summary.find_one({"playerName": player.playername}, collation=aggCollation)
             if player_document is None and player.playername != "":
                 # ok we didn't find this player so hopefully will be new! let's set the record to zeros
                 new_player = footballClasses.TeamPlayer(player.playername, False, "Created from a New Game")
                 self.add_player(new_player)
-                player_document = self.teamSummary.find_one({"playerName": player.playername}, collation=aggCollation)
+                player_document = self.team_summary.find_one({"playerName": player.playername}, collation=aggCollation)
                 if player_document is None:
-                    logger.critical("add_game(): After adding player, player does not exist in teamSummary")
+                    logger.critical("add_game(): After adding player, player does not exist in team_summary")
                     return False
 
             if player.playedlastgame:
@@ -745,7 +745,7 @@ class FootballDB:
                                                                   new_game.gamedate.day)
                 player_document["gamesAttended"] = player_document.get("gamesAttended") + 1
                 # now update DB player summary record
-                self.teamSummary.update_one({"playerName": player.playername},
+                self.team_summary.update_one({"playerName": player.playername},
                                             {"$set": {
                                                 "gamesCost": player_document.get("gamesCost"),
                                                 "balance": player_document.get("balance"),
@@ -761,7 +761,7 @@ class FootballDB:
                 logger.info("Booker Player:" + player.playername + " balance is " + str(
                     player_document.get("balance").to_decimal()))
 
-                self.teamSummary.update_one({"playerName": player.playername},
+                self.team_summary.update_one({"playerName": player.playername},
                                             {"$set": {
                                                 "balance": player_document.get("balance")
                                             }})
@@ -782,7 +782,7 @@ class FootballDB:
                                                             (cost_each * player.guests)))
                 logger.info("Guests for player:" + player.playername)
 
-                self.teamSummary.update_one({"playerName": player.playername},
+                self.team_summary.update_one({"playerName": player.playername},
                                             {"$set": {
                                                 "balance": player_document.get("balance")
                                             }})
@@ -823,14 +823,14 @@ class FootballDB:
         total_players_this_game = 0
         for player in edit_game_form.playerlist:
             # first check if any player is new
-            player_document = self.teamSummary.find_one({"playerName": player.playername}, collation=aggCollation)
+            player_document = self.team_summary.find_one({"playerName": player.playername}, collation=aggCollation)
             if player_document is None and player.playername != "":
                 # ok we didn't find this player so hopefully will be new! let's set the record to zeros
                 new_player = footballClasses.TeamPlayer(player.playername, False, "Created from an Edited Game")
                 self.add_player(new_player)
-                player_document = self.teamSummary.find_one({"playerName": player.playername}, collation=aggCollation)
+                player_document = self.team_summary.find_one({"playerName": player.playername}, collation=aggCollation)
                 if player_document is None:
-                    logger.critical("add_game(): After adding player, player does not exist in teamSummary")
+                    logger.critical("add_game(): After adding player, player does not exist in team_summary")
                     return False
 
             if player.playedlastgame:
@@ -916,7 +916,7 @@ class FootballDB:
             logger.debug(
                 "inserted new transaction for " + game_record.get("Booker") + " to add booking credit for this player")
 
-        player_dict = list(self.teamSummary.find({}, {"playerName": 1}))
+        player_dict = list(self.team_summary.find({}, {"playerName": 1}))
         player_list = []
         for player in player_dict:
             player_list.append(player.get("playerName"))
@@ -973,7 +973,7 @@ class FootballDB:
 
         self.games.delete_one({"_id": db_id})
 
-        player_dict = list(self.teamSummary.find({}, {"playerName": 1}))
+        player_dict = list(self.team_summary.find({}, {"playerName": 1}))
         player_list = []
         for player in player_dict:
             player_list.append(player.get("playerName"))
@@ -1011,7 +1011,7 @@ class FootballDB:
           -------
 
           active_players : `dict` : `list`
-            list of recently played player data from teamSummary
+            list of recently played player data from team_summary
 
           """
 
@@ -1019,7 +1019,7 @@ class FootballDB:
         cur_off_date = datetime.date.today() - datetime.timedelta(days=activeDays)
         cur_off_datetime = datetime.datetime(cur_off_date.year, cur_off_date.month, cur_off_date.day)
         try:
-            active_players = list(self.teamSummary.find({"lastPlayed": {"$gte": cur_off_datetime}}, {"_id": 0}))
+            active_players = list(self.team_summary.find({"lastPlayed": {"$gte": cur_off_datetime}}, {"_id": 0}))
         except pymongo.errors.OperationFailure as e:
             logger.critical("Could not return summary")
             logger.critical(e.code, e.details)
@@ -1039,14 +1039,14 @@ class FootballDB:
           -------
 
           all_players : `dict` : `list`
-            list of all player data from teamSummary
+            list of all player data from team_summary
 
           """
 
         all_players = []
         try:
-            # all_players = list(self.teamSummary.find({}, { "_id": 0}))
-            all_players = list(self.teamSummary.find({}))
+            # all_players = list(self.team_summary.find({}, { "_id": 0}))
+            all_players = list(self.team_summary.find({}))
         except pymongo.errors.OperationFailure as e:
             logger.critical("Could not return summary")
             logger.critical(e.code + e.details)
@@ -1185,7 +1185,7 @@ class FootballDB:
         cur_off_datetime = datetime.datetime(cur_off_date.year, cur_off_date.month, cur_off_date.day)
         try:
             active_players = list(
-                self.teamSummary.find({"lastPlayed": {"$gte": cur_off_datetime}}, {"playerName": 1, "lastPlayed": 1}))
+                self.team_summary.find({"lastPlayed": {"$gte": cur_off_datetime}}, {"playerName": 1, "lastPlayed": 1}))
         except pymongo.errors.OperationFailure as e:
             logger.critical("Could not get active Players from Summary in get_active_players_for_new_game()")
             logger.critical(e.code + e.details)
@@ -1216,7 +1216,7 @@ class FootballDB:
         cur_off_date = datetime.date.today() - datetime.timedelta(days=activeDays)
         cur_off_datetime = datetime.datetime(cur_off_date.year, cur_off_date.month, cur_off_date.day)
         try:
-            inactive_players = list(self.teamSummary.find({"lastPlayed": {"$lt": cur_off_datetime}},
+            inactive_players = list(self.team_summary.find({"lastPlayed": {"$lt": cur_off_datetime}},
                                                           {"playerName": 1}))
         except pymongo.errors.OperationFailure as e:
             logger.critical("Could not get inactive Players from Summary in get_inactive_players_for_new_game()")
@@ -1411,7 +1411,7 @@ class FootballDB:
         return False
 
     def get_all_players(self):
-        """ Returns a list of all player details - requires an effective join between teamSummary and teamPlayers, not
+        """ Returns a list of all player details - requires an effective join between team_summary and team_players, not
          efficient in mongoDB as it is not relational..
 
            Returns
@@ -1423,21 +1423,21 @@ class FootballDB:
         """
         all_players = []
         try:
-            all_players = list(self.teamSummary.find({}, {"_id": 1, "playerName": 1, "lastGamePlayed": 1}))
+            all_players = list(self.team_summary.find({}, {"_id": 1, "playerName": 1, "lastGamePlayed": 1}))
         except pymongo.errors.OperationFailure as e:
             logger.critical("Could not get All Players from Summary in get_all_players()")
             logger.critical(e.code + e.details)
 
         try:
             # inefficient - mongoDB is not relational!
-            all_player_details = list(self.teamPlayers.find({}))
+            all_player_details = list(self.team_players.find({}))
             for player in all_players:
                 for playerX in all_player_details:
                     if player.get("playerName", None) == playerX.get("playerName", "Not Set"):
                         player["retiree"] = playerX.get("retiree", False)
                         player["comment"] = playerX.get("comment", "No comment set")
         except pymongo.errors.OperationFailure as e:
-            logger.critical("Could not get/process All Players from teamPlayers in get_all_players()")
+            logger.critical("Could not get/process All Players from team_players in get_all_players()")
             logger.critical(e.code + e.details)
 
         return all_players
@@ -1566,12 +1566,12 @@ class FootballDB:
         -------
 
             all_players : `footballClasses.player` : `list`
-                All player details from teamSummary in a list.
+                All player details from team_summary in a list.
         """
         # returns a list of teamPlayer objects
         all_players = []
         try:
-            our_players = list(self.teamSummary.find({}, {"_id": 1, "playerName": 1, "comment": 1, "retiree": 1}))
+            our_players = list(self.team_summary.find({}, {"_id": 1, "playerName": 1, "comment": 1, "retiree": 1}))
         except pymongo.errors.OperationFailure as e:
             logger.critical("Could not get All Players from Summary in get_all_player_details_for_player_edit()")
             logger.critical(e.code + e.details)
@@ -1600,9 +1600,9 @@ class FootballDB:
 
         """
         try:
-            this_player = self.teamPlayers.find_one({"playerName": player_name})
+            this_player = self.team_players.find_one({"playerName": player_name})
         except pymongo.errors.OperationFailure as e:
-            logger.critical("Could not get the player in teamPlayers in get_player_defaults_for_edit()")
+            logger.critical("Could not get the player in team_players in get_player_defaults_for_edit()")
             logger.critical(e.code + e.details)
 
         player = footballClasses.TeamPlayer(player_name, this_player.get("retiree", False),
@@ -1620,7 +1620,7 @@ class FootballDB:
         """
         all_players = []
         try:
-            our_players = list(self.teamSummary.find({}, {"_id": 1, "playerName": 1}))
+            our_players = list(self.team_summary.find({}, {"_id": 1, "playerName": 1}))
         except pymongo.errors.OperationFailure as e:
             logger.critical("Could not get All Players from Summary in get_all_player_details_for_player_edit()")
             logger.critical(e.code + e.details)
@@ -1648,7 +1648,7 @@ class FootballDB:
         cur_off_date = datetime.date.today() - datetime.timedelta(days=activeDays)
         cur_off_datetime = datetime.datetime(cur_off_date.year, cur_off_date.month, cur_off_date.day)
 
-        player_last_played = self.teamSummary.find_one({"playerName": player_name}, {"lastPlayed": 1})
+        player_last_played = self.team_summary.find_one({"playerName": player_name}, {"lastPlayed": 1})
 
         if player_last_played.get("lastPlayed", datetime.datetime(1970, 1, 1, 0, 0)) < cur_off_datetime:
             return True
@@ -1698,10 +1698,10 @@ class FootballDB:
             return message
 
         # TO DO - update Summary table. ALso check if AutoPay has a duplicate
-        player_document = self.teamSummary.find_one({"playerName": transaction.player}, collation=aggCollation)
+        player_document = self.team_summary.find_one({"playerName": transaction.player}, collation=aggCollation)
         if player_document is None:
             # no record for player, this should not happen as it was in a select list. lets abort
-            message = "Selected player" + transaction.player + " is not in teamSummary table. Did not adjust Summary"
+            message = "Selected player" + transaction.player + " is not in team_summary table. Did not adjust Summary"
             logger.error(message)
             return message
 
@@ -1712,7 +1712,7 @@ class FootballDB:
         current_payments += transaction.amount  # transaction.amount is a float
 
         try:
-            self.teamSummary.update_one({"playerName": transaction.player},
+            self.team_summary.update_one({"playerName": transaction.player},
                                         {"$set": {
                                             "balance": Decimal128(str(current_balance)),
                                             "moniespaid": Decimal128(str(current_payments))}})
@@ -1782,7 +1782,7 @@ class FootballDB:
         return transaction
 
     def update_team_name(self, new_name, user_id):
-        """ update Team name across tenancy and teamSettings collections
+        """ update Team name across tenancy and team_settings collections
 
         Parameters
         ----------
@@ -1799,7 +1799,7 @@ class FootballDB:
             message : str
                 Message for web user if the action succeeded or not.
         """
-        settings = list(self.teamSettings.find({}))
+        settings = list(self.team_settings.find({}))
         our_id = None
         message = ""
 
@@ -1810,12 +1810,12 @@ class FootballDB:
 
         if our_id is not None:
             try:
-                self.teamSettings.update({"_id": our_id}, {"$set": {"teamName": new_name}})
+                self.team_settings.update({"_id": our_id}, {"$set": {"teamName": new_name}})
                 message = "Successfully updated teamName from " + current_team + " to " + new_name
             except pymongo.errors.OperationFailure as e:
-                logger.critical("Could not update teamSettings in  update_team_name()")
+                logger.critical("Could not update team_settings in  update_team_name()")
                 logger.critical(e.code + e.details)
-                message = "Internal error when updating teamSettings name " + new_name
+                message = "Internal error when updating team_settings name " + new_name
 
             try:
                 self.tenancy.update({"userID": user_id, "teamName": current_team}, {"$set": {"teamName": new_name}})
@@ -1837,7 +1837,7 @@ class FootballDB:
                 Single obj returned.
         """
         # TO DO: this is ugly, must be a better way to populate object
-        settings = list(self.teamSettings.find({}))
+        settings = list(self.team_settings.find({}))
         team_name = None
         for setting in settings:
             if setting.get("teamName", None) is not None:
@@ -1858,9 +1858,9 @@ class FootballDB:
         """
         all_settings = []
         try:
-            all_settings = list(self.teamSettings.find())
+            all_settings = list(self.team_settings.find())
         except pymongo.errors.OperationFailure as e:
-            logger.critical("Could not get/process settings from teamSettings in get_team_settings()")
+            logger.critical("Could not get/process settings from team_settings in get_team_settings()")
             logger.critical(e.code + e.details)
 
         return all_settings
@@ -1871,12 +1871,12 @@ class FootballDB:
         Returns
         -------
 
-            teamPlayers : `dict` : `list`
+            team_players : `dict` : `list`
                 keys as per db - name, comment and retiree keys.
         """
         team_players = []
         try:
-            team_players = list(self.teamPlayers.find())
+            team_players = list(self.team_players.find())
         except pymongo.errors.OperationFailure as e:
             logger.critical("Could not get/process settings from team_players in get_team_players()")
             logger.critical(e.code + e.details)
@@ -1959,7 +1959,7 @@ class FootballDB:
         """
         team_name = None
         try:
-            cffa_settings = list(self.teamSettings.find())
+            cffa_settings = list(self.team_settings.find())
             for setting in cffa_settings:
                 if setting.get("teamName", None) is not None:
                     team_name = setting.get("teamName", None)
@@ -2119,7 +2119,7 @@ class FootballDB:
 
         """
         try:
-            player_summary = self.teamSummary.find_one({"playerName": player_name}, {"_id": 0})
+            player_summary = self.team_summary.find_one({"playerName": player_name}, {"_id": 0})
         except Exception as e:
             logger.critical("Could not return summary in get_summary_for_player() for player " + player_name)
             logger.critical(e.code, e.details)
@@ -2263,10 +2263,10 @@ class FootballDB:
         try:
             self.payments.drop()
             self.games.drop()
-            self.teamPlayers.drop()
+            self.team_players.drop()
             self.adjustments.drop()
-            self.teamSettings.drop()
-            self.teamSummary.drop()
+            self.team_settings.drop()
+            self.team_summary.drop()
             self.tenancy.drop()
             message = "Dropped all data for user ID: " + user_id
         except Exception as e:
