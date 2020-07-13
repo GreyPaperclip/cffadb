@@ -209,7 +209,7 @@ class Googlesheet:
 
                 if player_name != "":
                     adjust_amount = Decimal128(sub(r'[^\d\-.]', '',
-                                                   player_adjustment.get("Money Carry over from 2009")))
+                                                   player_adjustment.get("Money Carry Over")))
                     self.actual_adjustments.append(dict(name=player_name, adjust=adjust_amount))
             except ValueError:
                 logger.warning("Bad player record found" + player_adjustment.get("Names"))
