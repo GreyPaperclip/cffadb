@@ -4,7 +4,7 @@ with open("README.md", "r") as fh:
     long_description = fh.read()
 
 setuptools.setup(
-    name="cffadb-GreyPaperclip", # Replace with your own username
+    name="cffadb-GreyPaperclip",   # Replace with your own username
     version="0.0.1",
     author="Richard Borrett",
     author_email="python@richardborrett.com",
