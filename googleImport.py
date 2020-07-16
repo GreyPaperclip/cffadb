@@ -134,7 +134,7 @@ class Googlesheet:
                 del game["Date of Game dd-MON-YYYY"]
                 game["Date of Game dd-MON-YYYY"] = datetime.datetime(game_date.year, game_date.month, game_date.day)
             except ValueError:
-                logger.warning("Bad date in game record" + game.get("Timestamp"))
+                logger.warning("Bad date in game record" + game.get("Timestamp", "Timestamp undefined"))
 
             # - convert "Cost of Game" and "Cost Each" to Decimal128.
             try:
@@ -205,14 +205,14 @@ class Googlesheet:
         self.actual_adjustments = []
         for player_adjustment in adjustment_extract:
             try:
-                player_name = player_adjustment.get("Names")
+                player_name = player_adjustment.get("Names", None)
 
                 if player_name != "":
                     adjust_amount = Decimal128(sub(r'[^\d\-.]', '',
-                                                   player_adjustment.get("Money Carry Over")))
+                                                   player_adjustment.get("Money Carry Over", "£0.00")))
                     self.actual_adjustments.append(dict(name=player_name, adjust=adjust_amount))
             except ValueError:
-                logger.warning("Bad player record found" + player_adjustment.get("Names"))
+                logger.warning("Bad player record found" + player_adjustment.get("Names", None))
 
         return self.actual_adjustments
 
@@ -284,7 +284,8 @@ class Googlesheet:
                     if game[player] in validation:
                         player_list = player_list + player + ","
             except ValueError:
-                logger.error("Problem calculating player list for game", game.Get("Date of Game dd-MON-YYYY"))
+                logger.error("Problem calculating player list for game", game.get("Date of Game dd-MON-YYYY",
+                                                                                  "Missing key for Game Date"))
                 player_list = "Error!"
 
             game["PlayerList"] = player_list
